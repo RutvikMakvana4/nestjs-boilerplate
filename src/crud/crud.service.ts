@@ -12,23 +12,20 @@ import {
 
 @Injectable()
 export class CrudService {
-
   constructor(
     @InjectRepository(Crud)
     private usersRepository: Repository<Crud>,
-  ) { }
+  ) {}
 
   async create(createCrudDto: CreateCrudDto): Promise<Crud> {
     try {
-      console.log('Received DTO:', createCrudDto);
-
       const user = this.usersRepository.create({
         name: createCrudDto.name,
         email: createCrudDto.email,
       });
-
       return this.usersRepository.save(user);
     } catch (error) {
+      console.log(error);
       if (error.code === '23505') {
         throw new BadRequestException('Email already exists');
       }
