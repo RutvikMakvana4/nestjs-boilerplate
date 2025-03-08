@@ -1,34 +1,34 @@
 import { Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { User } from './entities/users.entity';
-import { AccessToken } from './entities/acccessToken.entity';
-import { RefreshToken } from './entities/refreshToken.entity';
+import { InjectModel } from '@nestjs/sequelize';
+import User from './entities/users.model';
+import AccessToken from './entities/accessToken.model';
+import RefreshToken from './entities/refreshToken.model';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
+import { NotFoundException } from 'src/common/exceptions/errorExceptions';
+import { RegisterDto } from './dto/register.dto';
 
 @Injectable()
 export class AuthService {
+  private readonly saltRounds = 10;
+
   constructor(
     private jwtService: JwtService,
-    @InjectRepository(User) private userRepo: Repository<User>,
-    @InjectRepository(AccessToken)
-    private accessTokenRepo: Repository<AccessToken>,
-    @InjectRepository(RefreshToken)
-    private refreshTokenRepo: Repository<RefreshToken>,
-  ) {}
+    @InjectModel(User) private userModel: typeof User,
+    @InjectModel(AccessToken) private accessTokenModel: typeof AccessToken,
+    @InjectModel(RefreshToken) private refreshTokenModel: typeof RefreshToken,
+  ) { }
 
   async generateAccessToken(userId: number) {
     const jti = crypto.randomBytes(36).toString('hex');
     const payload = { data: JSON.stringify({ userId, jti }) };
     const accessToken = this.jwtService.sign(payload);
 
-    const newAccessToken = this.accessTokenRepo.create({
+    await this.accessTokenModel.create({
       token: jti,
-      user: { id: userId },
+      userId, // Sequelize uses userId directly instead of nested user object
     });
-    await this.accessTokenRepo.save(newAccessToken);
 
     return { accessToken, expiresAt: Date.now() + 3600 * 1000 };
   }
@@ -39,22 +39,33 @@ export class AuthService {
     const decoded = this.jwtService.decode(accessToken) as any;
     const accessJti = JSON.parse(decoded.data).jti;
 
-    const newRefreshToken = this.refreshTokenRepo.create({
+    await this.refreshTokenModel.create({
       token: refreshToken,
       accessToken: accessJti,
-      user: { id: userId },
+      userId, // Sequelize uses userId directly
     });
 
-    await this.refreshTokenRepo.save(newRefreshToken);
     return refreshToken;
   }
 
+  async register(registerDto: RegisterDto): Promise<User> {
+    const hashedPassword = await bcrypt.hash(
+      registerDto.password,
+      this.saltRounds,
+    );
+    const user = await this.userModel.create({
+      ...registerDto,
+      password: hashedPassword,
+    });
+    return user;
+  }
+
   async login(email: string, password: string) {
-    const user = await this.userRepo.findOne({ where: { email } });
-    if (!user) throw new Error('User not found');
+    const user = await this.userModel.findOne({ where: { email } });
+    if (!user) throw new NotFoundException('User not found');
 
     const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) throw new Error('Invalid password');
+    if (!isMatch) throw new NotFoundException('Invalid password');
 
     const { accessToken, expiresAt } = await this.generateAccessToken(user.id);
     const refreshToken = await this.generateRefreshToken(accessToken, user.id);
@@ -66,8 +77,8 @@ export class AuthService {
     const decoded = this.jwtService.decode(token) as any;
     const { jti } = JSON.parse(decoded.data);
 
-    await this.accessTokenRepo.delete({ token: jti });
-    await this.refreshTokenRepo.delete({ accessToken: jti });
+    await this.accessTokenModel.destroy({ where: { token: jti } });
+    await this.refreshTokenModel.destroy({ where: { accessToken: jti } });
 
     return { success: true, message: 'Logout successful' };
   }

@@ -1,15 +1,17 @@
-import { TypeOrmModuleOptions } from '@nestjs/typeorm';
+import { SequelizeModuleOptions } from '@nestjs/sequelize';
 import * as path from 'path';
 
-export const databaseConfig: TypeOrmModuleOptions = {
-  type: 'postgres',
-  host: process.env.DB_HOST || 'localhost',
-  port: parseInt(process.env.DB_PORT || '5432', 10),
-  username: process.env.DB_USERNAME || 'postgres',
-  password: process.env.DB_PASSWORD || 'your_password',
-  database: process.env.DB_NAME || 'blog_db',
-  entities: [
-    path.join(__dirname, '../../', '**', 'entities', '*.entity{.ts,.js}'),
+export const databaseConfig: SequelizeModuleOptions = {
+  dialect: 'postgres',
+  host: process.env.DB_HOST,
+  port: parseInt(process.env.DB_PORT || '3306'),
+  username: process.env.DB_USERNAME,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
+  models: [
+    path.join(__dirname, '../../', '**', 'entities', '*.model{.ts,.js}'),
   ],
+  autoLoadModels: true,
   synchronize: true,
+  logging: false
 };

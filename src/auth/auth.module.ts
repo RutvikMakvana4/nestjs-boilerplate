@@ -1,13 +1,13 @@
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
-import { TypeOrmModule } from '@nestjs/typeorm';
+import { SequelizeModule } from '@nestjs/sequelize';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from 'src/common/config/jwt.strategy';
-import { User } from './entities/users.entity';
-import { AccessToken } from './entities/acccessToken.entity';
-import { RefreshToken } from './entities/refreshToken.entity';
+import User from './entities/users.model';
+import AccessToken from './entities/accessToken.model';
+import RefreshToken from './entities/refreshToken.model';
 
 @Module({
   imports: [
@@ -16,7 +16,7 @@ import { RefreshToken } from './entities/refreshToken.entity';
       secret: process.env.JWT_SECRET,
       signOptions: { expiresIn: '7d' },
     }),
-    TypeOrmModule.forFeature([User, AccessToken, RefreshToken]),
+    SequelizeModule.forFeature([User, AccessToken, RefreshToken]), // Changed to SequelizeModule
   ],
   providers: [AuthService, JwtStrategy],
   controllers: [AuthController],

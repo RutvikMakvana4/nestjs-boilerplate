@@ -14,8 +14,6 @@ async function bootstrap() {
   app.use(LoggerMiddleware);
   app.useGlobalPipes(new ValidationPipe({ transform: true }));
 
-  console.log(path.join(__dirname, '..', 'swagger.yml'));
-
   const swaggerPath = path.join(__dirname, '..', 'swagger.yml');
   try {
     const swaggerDocument = YAML.load(swaggerPath);
@@ -29,5 +27,7 @@ async function bootstrap() {
   app.use(errorMiddleware);
 
   await app.listen(process.env.PORT ?? 3000);
+
+  console.log(`Application running on http://localhost:${process.env.PORT}`)
 }
 bootstrap();

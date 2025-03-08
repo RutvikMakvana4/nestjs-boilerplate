@@ -1,50 +1,44 @@
 import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { Post } from './entities/post.entity';
-import { User } from 'src/auth/entities/users.entity';
+import { InjectModel } from '@nestjs/sequelize';
+import Post from './entities/post.model';
+import User from 'src/auth/entities/users.model';
 import { NotFoundException } from 'src/common/exceptions/errorExceptions';
 
 @Injectable()
 export class PostService {
   constructor(
-    @InjectRepository(Post)
-    private readonly postRepo: Repository<Post>,
-
-    @InjectRepository(User)
-    private readonly userRepo: Repository<User>,
+    @InjectModel(Post)
+    private readonly postModel: typeof Post,
+    @InjectModel(User)
+    private readonly userModel: typeof User,
   ) {}
 
   async create(title: string, content: string, userId: number): Promise<Post> {
-    const user = await this.userRepo.findOne({ where: { id: userId } });
+    const user = await this.userModel.findByPk(userId);
     if (!user) throw new NotFoundException('User not found');
 
-    const newPost = this.postRepo.create({ title, content, user });
-    return this.postRepo.save(newPost);
+    const newPost = await this.postModel.create({ title, content, userId });
+    return newPost;
   }
 
   async findAll(): Promise<Post[]> {
-    return this.postRepo.find({ relations: ['user'] });
+    return this.postModel.findAll({ include: [User] }); // Include User for eager loading
   }
 
   async findOne(id: number): Promise<Post> {
-    const post = await this.postRepo.findOne({
-      where: { id },
-      relations: ['user'],
-    });
+    const post = await this.postModel.findByPk(id, { include: [User] });
     if (!post) throw new NotFoundException('Post not found');
     return post;
   }
 
   async update(id: number, title: string, content: string): Promise<Post> {
     const post = await this.findOne(id);
-    post.title = title;
-    post.content = content;
-    return this.postRepo.save(post);
+    await post.update({ title, content });
+    return post;
   }
 
   async delete(id: number): Promise<void> {
     const post = await this.findOne(id);
-    await this.postRepo.remove(post);
+    await post.destroy();
   }
 }

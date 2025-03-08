@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { Crud } from './entities/crud.entity';
+import { InjectModel } from '@nestjs/sequelize';
+import Crud from './entities/crud.model';
 import { CreateCrudDto } from './dto/create-crud.dto';
 import { UpdateCrudDto } from './dto/update-crud.dto';
 import {
@@ -13,20 +12,19 @@ import {
 @Injectable()
 export class CrudService {
   constructor(
-    @InjectRepository(Crud)
-    private usersRepository: Repository<Crud>,
+    @InjectModel(Crud)
+    private crudModel: typeof Crud,
   ) {}
 
   async create(createCrudDto: CreateCrudDto): Promise<Crud> {
     try {
-      const user = this.usersRepository.create({
+      const user = await this.crudModel.create({
         name: createCrudDto.name,
         email: createCrudDto.email,
       });
-      return this.usersRepository.save(user);
+      return user;
     } catch (error) {
-      console.log(error);
-      if (error.code === '23505') {
+      if (error.name === 'SequelizeUniqueConstraintError') {
         throw new BadRequestException('Email already exists');
       }
       throw new InternalServerErrorException('Failed to create user');
@@ -34,11 +32,11 @@ export class CrudService {
   }
 
   async findAll(): Promise<Crud[]> {
-    return this.usersRepository.find();
+    return this.crudModel.findAll();
   }
 
   async findOne(id: number): Promise<Crud> {
-    const user = await this.usersRepository.findOneBy({ id });
+    const user = await this.crudModel.findByPk(id);
     if (!user) {
       throw new NotFoundException(`User with ID ${id} not found`);
     }
@@ -47,12 +45,12 @@ export class CrudService {
 
   async update(id: number, updateCrudDto: UpdateCrudDto): Promise<Crud> {
     const user = await this.findOne(id);
-    Object.assign(user, updateCrudDto);
-    return this.usersRepository.save(user);
+    await user.update(updateCrudDto);
+    return user;
   }
 
   async remove(id: number): Promise<void> {
     const user = await this.findOne(id);
-    await this.usersRepository.remove(user);
+    await user.destroy();
   }
 }

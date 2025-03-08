@@ -1,16 +1,15 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { AccessToken } from 'src/auth/entities/acccessToken.entity';
+import { InjectModel } from '@nestjs/sequelize';
+import AccessToken from 'src/auth/entities/accessToken.model';
 import { JWT } from '../constants/constants';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(
-    @InjectRepository(AccessToken)
-    private accessTokenRepo: Repository<AccessToken>,
+    @InjectModel(AccessToken)
+    private accessTokenModel: typeof AccessToken,
   ) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
@@ -21,9 +20,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   async validate(payload: any) {
     const { userId, jti } = JSON.parse(payload.data);
 
-    const checkToken = await this.accessTokenRepo.findOne({
+    const checkToken = await this.accessTokenModel.findOne({
       where: { token: jti },
-      relations: ['user'],
+      include: ['user'], // Changed from relations to include for Sequelize
     });
 
     if (!checkToken) {
